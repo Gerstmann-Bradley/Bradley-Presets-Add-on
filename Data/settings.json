@@ -1,1 +1,131 @@
-{"Socials": [{"Name": "Youtube", "Url": "https://www.youtube.com/channel/UCP4I_8T3Ge3yHOnHz0Cnm8Q", "Icon": "Youtube.png"}, {"Name": "Discord", "Url": "https://discord.com/invite/TzuN6sPxQU", "Icon": "Discord.png"}, {"Name": "Github", "Url": "https://github.com/Gerstmann-Bradley/Mograph-Presets-of-Geometry-Nodes", "Icon": "Github.png"}], "Github": {"Repository": "Gerstmann-Bradley/Mograph-Presets-of-Geometry-Nodes"}, "Custom_Category": {"Curve": ["G_Alignment on Splines", "G_Array on Spline", "G_Attribute Spline", "G_Bevel Curve", "G_Curve Deform", "G_Curve Extrapolation", "G_Curve Fill Fracturing", "G_Curve Linear", "G_Follow Splines", "G_Helical Connection", "G_Reset Spline Cyclic", "G_Smooth Curve", "G_Spline Falloff", "G_Trim Curve Normalized"], "Falloff": ["G_Bounding Box Falloff", "G_Delay Falloff", "G_Directional Falloff", "G_Fade Falloff", "G_Proximity Falloff", "G_Radial Falloff"], "Fields": ["G_Attribute Instance", "G_Attribute Mesh Info", "G_Attribute Voronoi", "G_Field to Constant", "G_Implicit Attribute", "G_Offset Field List"], "Generator": ["G_Cloud Shadow", "G_Points Distribute", "G_Fill Volume", "G_Grid of Correct Indices"], "Index": ["G_Group Index", "G_Index Converge", "G_Index Extraction", "G_Index List Length", "G_Index Mask Falloff", "G_Index Randomize", "G_Index Reverse", "G_Index Seed", "G_Loop Index"], "Textures": ["G_Noise 3D", "G_Voronoi 3D"], "Time": ["G_Animate", "G_Ease Ease", "G_Time Info"], "Utils": ["G_ Modulo Fraction", "G_Boundary Selection", "G_Center Geometry", "G_Controller", "G_Count per Island", "G_Float Range", "G_Group per Domain", "G_Hexagon Distribution", "G_Implicit Geometry", "G_Is Inside Volume", "G_Mix Float", "G_Motion Variance", "G_Negati", "G_Normal Displacement", "G_Normalize Field", "G_Orientation Switch", "G_Parenting", "G_Random Transform", "G_Randomness", "G_Remap 0-1", "G_Rounding Voronoi", "G_Simple Range", "G_Sin Function", "G_Snap Function", "G_Solidify", "G_Translate Position", "G_UV Transfer", "G_Viewport Render Switch", "G_Warp"], "Vector": ["G_Combine Euler Rotation", "G_Mix XYZ Vector", "G_Object Coordinates", "G_Random Rotation", "G_Rotation to Vector", "G_Vector Noise", "G_Vector Seed", "G_Vector Wiggle"]}, "__DYN__": {"New": false, "P_Version": "presets1.5.blend", "B_Version": "3.5", "File_Location": "C:\\Users\\User\\AppData\\Roaming\\Blender Foundation\\Blender\\3.6\\scripts\\addons\\Bradley's Geo Node Presets\\Data\\3.5\\preset.blend", "Debug": false, "sha": "92d0df01bc0b718dcde17f125d6330fe86ead20c"}}
+{
+    "Socials": [
+        {
+            "Name": "Youtube",
+            "Url": "https://www.youtube.com/channel/UCP4I_8T3Ge3yHOnHz0Cnm8Q",
+            "Icon": "Youtube.png"
+        },
+        {
+            "Name": "Discord",
+            "Url": "https://discord.com/invite/TzuN6sPxQU",
+            "Icon": "Discord.png"
+        },
+        {
+            "Name": "Github",
+            "Url": "https://github.com/Gerstmann-Bradley/Mograph-Presets-of-Geometry-Nodes",
+            "Icon": "Github.png"
+        }
+    ],
+    "Github": {
+        "Repository": "Gerstmann-Bradley/Mograph-Presets-of-Geometry-Nodes"
+    },
+    "Custom_Category": {
+        "Curve": [
+            "G_Alignment on Splines",
+            "G_Array on Splines",
+            "G_Attribute Spline",
+            "G_Bevel Curve",
+            "G_Curve Deformer",
+            "G_Curve Extrapolation",
+            "G_Curve Fill Fracturing",
+            "G_Curve Linear",
+            "G_Follow Splines",
+            "G_Helical Connections",
+            "G_Reset Spline Cyclic",
+            "G_Smooth Curve",
+            "G_Spline Falloff",
+            "G_Trim Curve Normalized"
+        ],
+        "Falloff": [
+            "G_Bounding Box Falloff",
+            "G_Delay Falloff",
+            "G_Directional Falloff",
+            "G_Fade Falloff",
+            "G_Proximity Falloff",
+            "G_Radial Falloff"
+        ],
+        "Fields": [
+            "G_Attribute Instance",
+            "G_Attribute Mesh Info",
+            "G_Attribute Voronoi",
+            "G_Field to Constant",
+            "G_Implicit Attribute",
+            "G_Offset Field List"
+        ],
+        "Generator": [
+            "G_Cloud Shadow",
+            "G_Points Distribute",
+            "G_Fill Volume",
+            "G_Grid of Correct Indices"
+        ],
+        "Index": [
+            "G_Group Index",
+            "G_Index Converge",
+            "G_Index Extraction",
+            "G_Index List Length",
+            "G_Index Mask Falloff",
+            "G_Index Randomize",
+            "G_Index Reverse",
+            "G_Index Seed",
+            "G_Loop Index"
+        ],
+        "Textures": [
+            "G_Noise 3D",
+            "G_Voronoi 3D"
+        ],
+        "Time": [
+            "G_Animate",
+            "G_Ease Ease",
+            "G_Time Info"
+        ],
+        "Utils": [
+            "G_Modulo Fraction",
+            "G_Boundary Selection",
+            "G_Center Geometry",
+            "G_Controller",
+            "G_Count per Island",
+            "G_Float Range",
+            "G_Group per Domain",
+            "G_Hexagon Distribution",
+            "G_Implicit Geometry",
+            "G_Is Inside Volume",
+            "G_Motion Variance",
+            "G_Negati",
+            "G_Normal Displacement",
+            "G_Normalize Field",
+            "G_Orientation Switch",
+            "G_Parenting",
+            "G_Random Transform",
+            "G_Randomness",
+            "G_Remap 0-1",
+            "G_Rounding Voronoi",
+            "G_Simple Range",
+            "G_Sin Function",
+            "G_Snap Function",
+            "G_Solidify",
+            "G_Translate Position",
+            "G_UV Transfer",
+            "G_Viewport Render Switch",
+            "G_Warp"
+        ],
+        "Vector": [
+            "G_Combine Euler Rotation",
+            "G_Mix XYZ Vector",
+            "G_Object Coordinates",
+            "G_Random Rotation",
+            "G_Rotation to Vector",
+            "G_Vector Noise",
+            "G_Vector Seed",
+            "G_Vector Wiggle"
+        ]
+    },
+    "__DYN__": {
+        "Debug": false,
+        "New": true,
+        "P_Version": "__",
+        "B_Version": "__",
+        "File_Location": "",
+        "sha": "",
+        "closest": 0.0
+    }
+}
