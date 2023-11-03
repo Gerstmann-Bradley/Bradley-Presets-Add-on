@@ -6,12 +6,6 @@ import bpy.utils.previews
 import json
 
 # Import local modules from the add-on
-from .Custom_Category import (
-    NODE_OT_Add,
-    NODE_MT_GEO,
-    add_button,
-    geo_cat_generator,
-)
 from .Preset import preset_help
 from .constants import BRD_CONST_DATA
 from .utils import flatten
@@ -140,16 +134,10 @@ def run_after_load(*dummy):
     # Link the geometry nodes from the "preset.blend" library
     bpy.ops.bradley.link()
 
-    # If BRD_SESSION is True, generate a geometry node category
-    if BRD_SESSION:
-        geo_cat_generator()
-        BRD_SESSION = False
-
 # Flatten a nested list of classes into a single list
 classes = flatten(
     [
         BRD_Preference,
-        NODE_OT_Add,
     ]
     + preset_help
     + Panels.panels
@@ -171,11 +159,6 @@ def register():
 
     BRD_preview_collections["Social_icons"] = pcoll
 
-    # If the "NODE_MT_GEO" class doesn't exist, register it and add a button to the "Add" menu
-    if not hasattr(bpy.types, "NODE_MT_GEO"):
-        bpy.utils.register_class(NODE_MT_GEO)
-        bpy.types.NODE_MT_add.append(add_button)
-
     # Register all classes defined in the "classes" list
     for i in classes:
         bpy.utils.register_class(i)
@@ -185,10 +168,6 @@ def register():
 
 # Function to unregister the add-on and remove its functionality
 def unregister():
-    # If the "NODE_MT_GEO" class exists, remove the button from the "Add" menu
-    if hasattr(bpy.types, "NODE_MT_GEO"):
-        bpy.types.NODE_MT_add.remove(add_button)
-
     # Unregister all classes defined in the "classes" list
     for i in classes:
         bpy.utils.unregister_class(i)
