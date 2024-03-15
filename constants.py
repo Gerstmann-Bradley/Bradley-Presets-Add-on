@@ -51,6 +51,11 @@ except Exception as e:
     # Set a default version "3.1" if the request fails
     version = "3.1"
 
+# Remove all existing folders within the "Data" directory except for the one corresponding to the desired version
+for item in Folder.iterdir():
+    if item.is_dir() and item.name != version:
+        item.rmdir()
+
 # Create a directory with the version number within the "Data" folder
 Path(PurePath(Folder, version)).mkdir(parents=True, exist_ok=True)
 
