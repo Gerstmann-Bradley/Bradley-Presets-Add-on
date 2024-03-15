@@ -18,7 +18,7 @@ bl_info = {
     "name": "Bradley's Geo Node Presets",
     "description": "This is a geometry node preset made by Bradley's animation, and possibly ferret",
     "author": "Possibly Ferret | Bradley",
-    "version": (0, 0, 3),
+    "version": (1, 0, 0),
     "blender": (4, 0, 0),
     "location": "GeometryNode",
     "support": "COMMUNITY",
