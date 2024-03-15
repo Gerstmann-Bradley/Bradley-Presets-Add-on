@@ -1,7 +1,7 @@
 import requests
 
 
-def connected_to_internet(url="http://www.google.com/", timeout=5):
+def connected_to_internet(url="https://www.bilibili.com/", timeout=100):
     try:
         _ = requests.head(url, timeout=timeout)
         return True
