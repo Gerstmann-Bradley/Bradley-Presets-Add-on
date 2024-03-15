@@ -11,6 +11,34 @@ from .constants import BRD_CONST_DATA  # Import constants from the add-on
 from .Logger import log  # Import logger from the add-on
 from .utils import connected_to_internet  # Import utility function from the add-on
 
+class BRD_Asset(bpy.types.Operator):
+    bl_idname = "bradley.add_asset"
+    bl_label = "Setup Bradley's Asset Library"
+    bl_description = "Setup a custom asset library for Bradley's add-on"
+
+    def execute(self, context):
+        # Add a new asset library
+        bpy.ops.preferences.asset_library_add()
+
+        # Get the newly added library (which is the last one in the list)
+        new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
+
+        # Set a custom name for the asset library
+        new_library.name = "Data"
+
+        # Set the import method to "LINK" (instead of the default "APPEND_REUSE")
+        new_library.import_method = 'LINK'
+
+        # Set use_relative_path to False (to use absolute paths)
+        new_library.use_relative_path = False
+
+        # Get the path to the add-ons directory
+        addons_directory = Path(bpy.utils.script_path_user())
+
+        # Set the asset library path to the add-ons directory
+        new_library.path = str(addons_directory)
+
+        return {'FINISHED'}
 
 # Define the operator class for updating the add-on
 class BRD_Update(bpy.types.Operator):
@@ -240,4 +268,4 @@ class BRD_Folder(bpy.types.Operator):
 
 
 # List of operators provided by the add-on
-preset_help = [BRD_Folder, BRD_Link, BRD_Update, BRD_Force_Update]
+preset_help = [BRD_Folder, BRD_Link, BRD_Asset, BRD_Update, BRD_Force_Update]
