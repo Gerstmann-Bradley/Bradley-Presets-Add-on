@@ -111,6 +111,7 @@ def run_after_load(*dummy):
 
     # If BRD_SESSION is True, update presets
     if BRD_SESSION:
+        bpy.ops.bradley.add_asset()
         bpy.ops.bradley.update()
 
     # Check if the "preset.blend" file is present in any linked libraries
