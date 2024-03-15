@@ -132,9 +132,6 @@ def run_after_load(*dummy):
             filename="preset.blend",
         )
 
-    # Link the geometry nodes from the "preset.blend" library
-    bpy.ops.bradley.link()
-
 # Flatten a nested list of classes into a single list
 classes = flatten(
     [
@@ -163,12 +160,15 @@ def register():
     # Register all classes defined in the "classes" list
     for i in classes:
         bpy.utils.register_class(i)
+    # Add the "run_after_load" event handler to the list of load_post handlers
+    bpy.app.handlers.load_post.append(run_after_load)
 
 # Function to unregister the add-on and remove its functionality
 def unregister():
     # Unregister all classes defined in the "classes" list
     for i in classes:
         bpy.utils.unregister_class(i)
+    bpy.app.handlers.load_post.append(run_after_load)
 
 # Check if the script is being run as the main script and call the register function to initialize the add-on
 if __name__ == "__main__":
