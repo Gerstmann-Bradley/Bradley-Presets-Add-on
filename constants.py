@@ -45,11 +45,11 @@ try:
         )
     else:
         # If there is no internet connection, set a default version "3.1"
-        version = "3.1"
+        version = str(bpy.app.version_string)[0:3]
 except Exception as e:
     print(f"An error occurred while fetching GitHub repository contents: {e}")
     # Set a default version "3.1" if the request fails
-    version = "3.1"
+    version = str(bpy.app.version_string)[0:3]
 
 # Remove all existing folders within the "Data" directory except for the one corresponding to the desired version
 for item in Folder.iterdir():
@@ -62,29 +62,6 @@ for item in Folder.iterdir():
 
 # Create a directory with the version number within the "Data" folder
 Path(PurePath(Folder, version)).mkdir(parents=True, exist_ok=True)
-
-# Get all asset libraries
-asset_libraries = bpy.context.preferences.filepaths.asset_libraries
-
-# Define the target name you want to find (e.g., "Data")
-target_name = "Data"
-
-# Initialize the index
-matching_index = None
-
-# Iterate through asset libraries
-for index, asset_library in enumerate(asset_libraries):
-    if asset_library.name == target_name:
-        matching_index = index
-        break
-
-# Set a new path for the asset library
-if matching_index is not None:
-    new_path = str(Folder)
-    asset_libraries[matching_index].path = new_path
-    print(f"Asset library '{target_name}' found at index {matching_index}. Path updated to: {new_path}")
-else:
-    print(f"No asset library with name '{target_name}' found.")
 
 # Initialize the "BRD_CONST_DATA" object using the custom classes and information gathered above
 BRD_CONST_DATA = BRD_Datas(
