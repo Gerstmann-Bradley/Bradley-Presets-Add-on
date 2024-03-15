@@ -29,14 +29,8 @@ class BRD_Asset(bpy.types.Operator):
         # Set the import method to "LINK" (instead of the default "APPEND_REUSE")
         new_library.import_method = 'LINK'
 
-        # Set use_relative_path to False (to use absolute paths)
-        new_library.use_relative_path = False
-
-        # Get the path to the add-ons directory
-        addons_directory = Path(bpy.utils.script_path_user())
-
         # Set the asset library path to the add-ons directory
-        new_library.path = str(addons_directory)
+        new_library.path = str(PurePath(BRD_CONST_DATA.Folder))
 
         return {'FINISHED'}
 
