@@ -22,28 +22,33 @@ repo = stuff["Github"]["Repository"]
 # Initialize the "version" variable as a floating-point number
 version = float()
 
-# Check if there is an internet connection
-if connected_to_internet():
+try:
+    # Check if there is an internet connection
+    if connected_to_internet():
 
-    # Send a request to the GitHub repository API to get the contents
-    r = requests.get(f"https://api.github.com/repos/{repo}/contents/").json()
+        # Send a request to the GitHub repository API to get the contents
+        r = requests.get(f"https://api.github.com/repos/{repo}/contents/").json()
 
-    # Extract the versions from the repository contents using regular expressions
-    vers = [float(i["name"]) for i in r if re.match(r"^-?\d+(?:\.\d+)$", i["name"])]
+        # Extract the versions from the repository contents using regular expressions
+        vers = [float(i["name"]) for i in r if re.match(r"^-?\d+(?:\.\d+)$", i["name"])]
 
-    # Determine the Blender version based on the installed version and the available versions in the repository
-    version = (
-        str(bpy.app.version_string)[0:3]
-        if float(str(bpy.app.version_string)[0:3]) in vers
-        else str(
-            min(
-                vers,
-                key=lambda x: abs(x - float(float(str(bpy.app.version_string)[0:3]))),
+        # Determine the Blender version based on the installed version and the available versions in the repository
+        version = (
+            str(bpy.app.version_string)[0:3]
+            if float(str(bpy.app.version_string)[0:3]) in vers
+            else str(
+                min(
+                    vers,
+                    key=lambda x: abs(x - float(float(str(bpy.app.version_string)[0:3]))),
+                )
             )
         )
-    )
-else:
-    # If there is no internet connection, set a default version "3.1"
+    else:
+        # If there is no internet connection, set a default version "3.1"
+        version = "3.1"
+except Exception as e:
+    print(f"An error occurred while fetching GitHub repository contents: {e}")
+    # Set a default version "3.1" if the request fails
     version = "3.1"
 
 # Create a directory with the version number within the "Data" folder
