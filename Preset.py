@@ -17,20 +17,42 @@ class BRD_Asset(bpy.types.Operator):
     bl_description = "Setup a custom asset library for Bradley's add-on"
 
     def execute(self, context):
-        # Add a new asset library
-        bpy.ops.preferences.asset_library_add()
+        # Get all asset libraries
+        asset_libraries = bpy.context.preferences.filepaths.asset_libraries
 
-        # Get the newly added library (which is the last one in the list)
-        new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
+        # Define the target name you want to find (e.g., "Data")
+        target_name = "Data"
 
-        # Set a custom name for the asset library
-        new_library.name = "Data"
+        # Initialize the index
+        matching_index = None
 
-        # Set the import method to "LINK" (instead of the default "APPEND_REUSE")
-        new_library.import_method = 'LINK'
+        # Iterate through asset libraries
+        for index, asset_library in enumerate(asset_libraries):
+            if asset_library.name == target_name:
+                matching_index = index
+                break
 
-        # Set the asset library path to the add-ons directory
-        new_library.path = str(PurePath(BRD_CONST_DATA.Folder))
+        # Set a new path for the asset library
+        if matching_index is not None:
+            new_path = str(PurePath(BRD_CONST_DATA.Folder))
+            asset_libraries[matching_index].path = new_path
+            print(f"Asset library '{target_name}' found at index {matching_index}. Path updated to: {new_path}")
+        else:
+            # Add a new asset library
+            bpy.ops.preferences.asset_library_add()
+
+            # Get the newly added library (which is the last one in the list)
+            new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
+
+            # Set a custom name for the asset library
+            new_library.name = "Data"
+
+            # Set the import method to "LINK" (instead of the default "APPEND_REUSE")
+            new_library.import_method = 'LINK'
+
+            # Set the asset library path to the "Data" folder
+            new_library.path = str(PurePath(BRD_CONST_DATA.Folder))
+            print(f"Asset library '{target_name}' added with path: {str(PurePath(BRD_CONST_DATA.Folder))}")
 
         return {'FINISHED'}
 
