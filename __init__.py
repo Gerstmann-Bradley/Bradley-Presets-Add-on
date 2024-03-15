@@ -89,7 +89,7 @@ class BRD_Preference(bpy.types.AddonPreferences):
         elif self.ui_tab == "Settings":
             col = box.column()
             row = col.row()
-            row.operator("bradley.add_asset", text="Add/Update Asset Library Path")
+            row.operator("bradley.add_asset", text="Add/Update Asset Library Path", icon="ASSET_MANAGER")
             row = col.row()
             row.operator(
                 "bradley.folder",

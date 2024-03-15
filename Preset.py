@@ -177,7 +177,6 @@ class BRD_Link(bpy.types.Operator):
 
         return {"FINISHED"}
 
-
 class BRD_Force_Update(bpy.types.Operator):
     bl_idname = "bradley.force_update"
     bl_label = "BRD_Force_Update"
@@ -260,7 +259,6 @@ class BRD_Force_Update(bpy.types.Operator):
 
         return {"FINISHED"}
 
-
 class BRD_Folder(bpy.types.Operator):
     bl_idname = "bradley.folder"
     bl_label = "bradley folder"
@@ -280,7 +278,6 @@ class BRD_Folder(bpy.types.Operator):
             Popen(["xdg-open", str(self.place)])
 
         return {"FINISHED"}
-
 
 # List of operators provided by the add-on
 preset_help = [BRD_Folder, BRD_Link, BRD_Asset, BRD_Update, BRD_Force_Update]
