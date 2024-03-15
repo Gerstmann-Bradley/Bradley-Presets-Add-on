@@ -53,7 +53,7 @@ class BRD_Preference(bpy.types.AddonPreferences):
             ("Socials", "Socials", ""),
             ("Settings", "Settings", ""),
         ],
-        default="Socials",
+        default="Settings",
     )
 
     # Boolean property for debugging, which calls the updater function when updated
