@@ -23,7 +23,6 @@ class __DYN__:
 class BRD_Datas:
     Package_name: str
     Socials: List[Social]
-    Custom_Category: dict
     Repository: str
     Folder: Path
     __DYN__: __DYN__

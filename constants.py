@@ -66,7 +66,6 @@ Path(PurePath(Folder, version)).mkdir(parents=True, exist_ok=True)
 BRD_CONST_DATA = BRD_Datas(
     __package__,
     [Social(**i) for i in stuff["Socials"]],
-    stuff["Custom_Category"],
     f"https://api.github.com/repos/{repo}/contents/{version}",
     Folder,
     __DYN__(
