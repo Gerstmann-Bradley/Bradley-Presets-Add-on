@@ -8,6 +8,7 @@ import requests
 from .Dtcls import BRD_Datas, __DYN__, Social
 from .utils import connected_to_internet
 import json
+import shutil
 
 # Set the "Folder" variable to the path of the "Data" folder within the add-on directory
 Folder = Path(Path(__file__).parents[0], "Data")
@@ -43,22 +44,20 @@ try:
                 )
             )
         )
+
+        # Remove all existing folders within the "Data" directory except for the one corresponding to the desired version
+        for item in Folder.iterdir():
+            if item.is_dir() and item.name != version:
+                # Delete all files and subdirectories within the directory
+                shutil.rmtree(item)
     else:
         # If there is no internet connection, set a default version "3.1"
         version = str(bpy.app.version_string)[0:3]
+        # Here you might want to decide whether to remove folders even without internet connection
 except Exception as e:
     print(f"An error occurred while fetching GitHub repository contents: {e}")
     # Set a default version "3.1" if the request fails
     version = str(bpy.app.version_string)[0:3]
-
-# Remove all existing folders within the "Data" directory except for the one corresponding to the desired version
-for item in Folder.iterdir():
-    if item.is_dir() and item.name != version:
-        # Delete only directories, skip files
-        try:
-            item.rmdir()
-        except OSError as e:
-            print(f"Failed to remove directory {item}: {e}")
 
 # Create a directory with the version number within the "Data" folder
 Path(PurePath(Folder, version)).mkdir(parents=True, exist_ok=True)
