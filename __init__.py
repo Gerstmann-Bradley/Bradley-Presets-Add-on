@@ -89,8 +89,6 @@ class BRD_Preference(bpy.types.AddonPreferences):
         elif self.ui_tab == "Settings":
             col = box.column()
             row = col.row()
-            row.operator("bradley.add_asset", text="Add/Update Asset Library Path", icon="ASSET_MANAGER")
-            row = col.row()
             row.operator(
                 "bradley.folder",
                 text="Open Folder of Presets File ",
@@ -98,7 +96,8 @@ class BRD_Preference(bpy.types.AddonPreferences):
             )
             row = col.row()
             row.operator("bradley.force_update", text="Force Update Presets")
-
+            row = col.row()
+            row.operator("bradley.remove_asset", text="Remove Asset Library Path", icon="PANEL_CLOSE")
             row = col.row()
             row.prop(self, "debugging", toggle=True)
             row.prop(self, "experimental", toggle=True)

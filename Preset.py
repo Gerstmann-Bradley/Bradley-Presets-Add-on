@@ -56,6 +56,36 @@ class BRD_Asset(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class BRD_Remove(bpy.types.Operator):
+    bl_idname = "bradley.remove_asset"
+    bl_label = "Remove Bradley's Asset Library"
+    bl_description = "Remove the asset library path before you disable the add-on"
+
+    def execute(self, context):
+        # Get all asset libraries
+        asset_libraries = bpy.context.preferences.filepaths.asset_libraries
+
+        # Define the target name you want to find (e.g., "Data")
+        target_name = "Data"
+
+        # Initialize the index
+        matching_index = None
+
+        # Iterate through asset libraries
+        for index, asset_library in enumerate(asset_libraries):
+            if asset_library.name == target_name:
+                matching_index = index
+                break
+
+        if matching_index is not None:
+            # Remove the asset library
+            bpy.ops.preferences.asset_library_remove(index=matching_index)
+            print(f"Asset library '{target_name}' removed.")
+        else:
+            print(f"No asset library with name '{target_name}' found.")
+
+        return {'FINISHED'}
+
 # Define the operator class for updating the add-on
 class BRD_Update(bpy.types.Operator):
     bl_idname = "bradley.update"
@@ -251,4 +281,4 @@ class BRD_Folder(bpy.types.Operator):
         return {"FINISHED"}
 
 # List of operators provided by the add-on
-preset_help = [BRD_Folder, BRD_Asset, BRD_Update, BRD_Force_Update]
+preset_help = [BRD_Folder, BRD_Asset, BRD_Remove, BRD_Update, BRD_Force_Update]
