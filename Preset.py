@@ -141,7 +141,6 @@ class BRD_Update(bpy.types.Operator):
             log.debug("No internet connection available")
         return {"FINISHED"}
 
-
 class BRD_Link(bpy.types.Operator):
     bl_idname = "bradley.link"
     bl_label = "bradley link"

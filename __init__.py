@@ -164,9 +164,6 @@ def register():
     for i in classes:
         bpy.utils.register_class(i)
 
-    # Add the "run_after_load" event handler to the list of load_post handlers
-    bpy.app.handlers.load_post.append(run_after_load)
-
 # Function to unregister the add-on and remove its functionality
 def unregister():
     # Unregister all classes defined in the "classes" list
