@@ -122,12 +122,10 @@ def run_after_load(*dummy):
                 s for s in [i.name for i in bpy.data.libraries] if "preset.blend" in s
             ][0],
             directory=str(
-                Path(
                     PurePath(
                         BRD_CONST_DATA.Folder,
                         BRD_CONST_DATA.__DYN__.B_Version,
                     )
-                ).resolve()
             ),
             filename="preset.blend",
         )
