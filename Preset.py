@@ -6,6 +6,7 @@ import bpy.utils.previews
 from platform import system
 from subprocess import Popen
 import json
+import os
 
 from .constants import BRD_CONST_DATA  # Import constants from the add-on
 from .Logger import log  # Import logger from the add-on
@@ -198,111 +199,97 @@ class BRD_Force_Update(bpy.types.Operator):
     bl_idname = "bradley.force_update"
     bl_label = "BRD_Force_Update"
 
-    @classmethod
-    def poll(cls, context):
-        return True
-
     def execute(self, context):
-        # Check for internet connection
+        # Check if there is an internet connection
         if connected_to_internet():
-            log.debug("Force Update")
+            # Send a request to GitHub to get the repository data
+            r = requests.get(BRD_CONST_DATA.Repository)
+            repo_contents = r.json()
 
-            self.r = requests.get(BRD_CONST_DATA.Repository)
-            self.r = self.r.json()
+            # Extract the preset and text file data from the repository
+            preset_data = next((item for item in repo_contents if item["name"].endswith(".blend")), None)
+            text_files_data = [item for item in repo_contents if item["name"].endswith(".txt")]
 
-            self.preset_data = [i for i in self.r if i["name"].endswith(".blend")]
-            if self.preset_data:
-                self.preset_data = self.preset_data[0]
-                self.sha = self.preset_data["sha"]
-                log.debug(f"sha new -> {self.sha}")
+            if preset_data:
+                sha = preset_data["sha"]
+                log.debug(f"sha new -> {sha}")
                 log.debug(f"sha current -> {BRD_CONST_DATA.__DYN__.sha}")
-                self.version = self.preset_data["name"].lower().replace(" ", "")
+                version = preset_data["name"].lower().replace(" ", "")
+                file_repo = preset_data["download_url"]
 
-                self.file_repo = self.preset_data["download_url"]
-
-                log.debug(f"Preset github version: {self.version}")
+                log.debug(f"Preset github version: {version}")
                 log.debug(f"Preset local version: {BRD_CONST_DATA.__DYN__.P_Version}")
 
                 with open(BRD_CONST_DATA.Folder / "settings.json", "r") as f:
                     stuff = json.load(f)
+                a = [
+                    i
+                    for i in Path(
+                        PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version)
+                    ).iterdir()
+                    if i.name.endswith(".blend")
+                ]
 
-                    log.debug("Preset -> Updating")
+                # Remove previous preset file if necessary
+                if (
+                    stuff["__DYN__"]["File_Location"]
+                    and stuff["__DYN__"]["File_Location"] != "."
+                    and a
+                ):
+                    Path(stuff["__DYN__"]["File_Location"]).unlink()
 
-                    if (
-                        bool(stuff["__DYN__"]["File_Location"])
-                        and not stuff["__DYN__"]["File_Location"] == "."
-                    ):
-                        file_location = Path(stuff["__DYN__"]["File_Location"])
-                        if file_location.exists():
-                            file_location.unlink()
-                        else:
-                            log.debug(f"File to delete not found: {file_location}")
+                # Download and save new preset file
+                local_filename = PurePath(
+                    BRD_CONST_DATA.Folder,
+                    BRD_CONST_DATA.__DYN__.B_Version,
+                    "preset.blend",
+                )
 
-                    # Download and save new preset file
-                    self.local_filename = PurePath(
-                        BRD_CONST_DATA.Folder,
-                        BRD_CONST_DATA.__DYN__.B_Version,
-                        "preset.blend",
-                    )
+                with requests.get(file_repo, stream=True) as r:
+                    with open(str(local_filename), "wb") as f:
+                        shutil.copyfileobj(r.raw, f)
 
-                    File_Location = str(self.local_filename)
-                    P_Version = self.version
+                # Update add-on settings
+                stuff["__DYN__"] = {
+                    "New": False,
+                    "P_Version": version,
+                    "B_Version": BRD_CONST_DATA.__DYN__.B_Version,
+                    "File_Location": str(local_filename),
+                    "Debug": BRD_CONST_DATA.__DYN__.Debug,
+                    "sha": sha,
+                }
 
-                    with requests.get(self.file_repo, stream=True) as r:
-                        with open(File_Location, "wb") as f:
-                            shutil.copyfileobj(r.raw, f)
+                with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
+                    f.write(json.dumps(stuff))
 
-                    stuff["__DYN__"] = {
-                        "New": False,
-                        "P_Version": P_Version,
-                        "B_Version": BRD_CONST_DATA.__DYN__.B_Version,
-                        "File_Location": File_Location,
-                        "Debug": BRD_CONST_DATA.__DYN__.Debug,
-                        "sha": self.sha,
-                    }
-
-                    with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
-                        f.write(json.dumps(stuff))
-
-                    log.debug("Preset -> Updated")
-
-                    a = [
-                        s
-                        for s in [i.name for i in bpy.data.libraries]
-                        if "preset.blend" in s
-                    ]
-                    if a:
-                        log.debug(f"Reloading data: {a[0]}")
-                        bpy.data.libraries[a[0]].reload()
-                    else:
-                        log.debug("No library found to reload.")
+                log.debug("Preset -> Updated")
             else:
-                log.debug("No preset data found in the repository.")
-
-            # Move the file "blender_assets.cats" to BRD_CONST_DATA.Folder
-            for text_file_data in self.r:
-                if text_file_data["name"] == "blender_assets.cats.txt":
-                    file_url = text_file_data["download_url"]
-                    file_path = PurePath(BRD_CONST_DATA.Folder, "blender_assets.cats.txt")
-
-                    with requests.get(file_url, stream=True) as r:
-                        lines = r.text.splitlines()  # Split the text into lines
-                        with open(str(file_path), "w", encoding="utf-8") as f:
-                            for line in lines:
-                                f.write(line + "\n")  # Write each line followed by a newline character
-                else:
-                    # For other text files, move them to BRD_CONST_DATA.Folder/B_VERSION
-                    text_file_url = text_file_data["download_url"]
-                    text_file_name = text_file_data["name"]
-                    text_file_path = PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version, text_file_name)
-
-                    with requests.get(text_file_url, stream=True) as r:
-                        lines = r.text.splitlines()  # Split the text into lines
-                        with open(str(text_file_path), "w", encoding="utf-8") as f:
-                            for line in lines:
-                                f.write(line + "\n")  # Write each line followed by a newline character
+                log.debug("Preset -> Up to Date")
         else:
-            log.debug("no internet connection available")
+            log.debug("No preset data found in the repository.")
+
+        # Move the file "blender_assets.cats" to BRD_CONST_DATA.Folder
+        for text_file_data in text_files_data:
+            if text_file_data["name"] == "blender_assets.cats.txt":
+                file_url = text_file_data["download_url"]
+                file_path = PurePath(BRD_CONST_DATA.Folder, "blender_assets.cats.txt")
+
+                with requests.get(file_url, stream=True) as r:
+                    lines = r.text.splitlines()  # Split the text into lines
+                    with open(str(file_path), "w", encoding="utf-8") as f:
+                        for line in lines:
+                            f.write(line + "\n")  # Write each line followed by a newline character
+            else:
+                # For other text files, move them to BRD_CONST_DATA.Folder/B_VERSION
+                text_file_url = text_file_data["download_url"]
+                text_file_name = text_file_data["name"]
+                text_file_path = PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version, text_file_name)
+
+                with requests.get(text_file_url, stream=True) as r:
+                    lines = r.text.splitlines()  # Split the text into lines
+                    with open(str(text_file_path), "w", encoding="utf-8") as f:
+                        for line in lines:
+                            f.write(line + "\n")  # Write each line followed by a newline character
 
         return {"FINISHED"}
 
