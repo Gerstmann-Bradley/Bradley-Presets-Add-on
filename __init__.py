@@ -18,7 +18,7 @@ bl_info = {
     "name": "Bradley's Geo Node Presets",
     "description": "This is a geometry node preset made by Bradley's animation, and possibly ferret",
     "author": "Possibly Ferret | Bradley",
-    "version": (0, 0, 3),
+    "version": (1, 0, 0),
     "blender": (4, 0, 0),
     "location": "GeometryNode",
     "support": "COMMUNITY",
@@ -53,7 +53,7 @@ class BRD_Preference(bpy.types.AddonPreferences):
             ("Socials", "Socials", ""),
             ("Settings", "Settings", ""),
         ],
-        default="Socials",
+        default="Settings",
     )
 
     # Boolean property for debugging, which calls the updater function when updated
@@ -94,10 +94,10 @@ class BRD_Preference(bpy.types.AddonPreferences):
                 text="Open Folder of Presets File ",
                 icon="FILE_FOLDER",
             )
-
             row = col.row()
             row.operator("bradley.force_update", text="Force Update Presets")
-
+            row = col.row()
+            row.operator("bradley.remove_asset", text="Remove Asset Library Path", icon="PANEL_CLOSE")
             row = col.row()
             row.prop(self, "debugging", toggle=True)
             row.prop(self, "experimental", toggle=True)
@@ -110,6 +110,7 @@ def run_after_load(*dummy):
 
     # If BRD_SESSION is True, update presets
     if BRD_SESSION:
+        bpy.ops.bradley.add_asset(),
         bpy.ops.bradley.update()
 
     # Check if the "preset.blend" file is present in any linked libraries
@@ -121,18 +122,13 @@ def run_after_load(*dummy):
                 s for s in [i.name for i in bpy.data.libraries] if "preset.blend" in s
             ][0],
             directory=str(
-                Path(
-                    PurePath(
-                        BRD_CONST_DATA.Folder,
-                        BRD_CONST_DATA.__DYN__.B_Version,
-                    )
-                ).resolve()
+                PurePath(
+                    BRD_CONST_DATA.Folder,
+                    BRD_CONST_DATA.__DYN__.B_Version,
+                )
             ),
             filename="preset.blend",
         )
-
-    # Link the geometry nodes from the "preset.blend" library
-    bpy.ops.bradley.link()
 
 # Flatten a nested list of classes into a single list
 classes = flatten(
@@ -162,7 +158,6 @@ def register():
     # Register all classes defined in the "classes" list
     for i in classes:
         bpy.utils.register_class(i)
-
     # Add the "run_after_load" event handler to the list of load_post handlers
     bpy.app.handlers.load_post.append(run_after_load)
 
@@ -171,6 +166,7 @@ def unregister():
     # Unregister all classes defined in the "classes" list
     for i in classes:
         bpy.utils.unregister_class(i)
+    bpy.app.handlers.load_post.append(run_after_load)
 
 # Check if the script is being run as the main script and call the register function to initialize the add-on
 if __name__ == "__main__":
