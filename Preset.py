@@ -168,20 +168,30 @@ class BRD_Update(bpy.types.Operator):
             else:
                 log.debug("No preset data found in the repository.")
 
-            # Download and save text files
+            # Move the file "blender_assets.cats" to BRD_CONST_DATA.Folder
             for text_file_data in text_files_data:
-                text_file_url = text_file_data["download_url"]
-                text_file_name = text_file_data["name"]
-                text_file_path = PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version, text_file_name)
+                if text_file_data["name"] == "blender_assets.cats.txt":
+                    file_url = text_file_data["download_url"]
+                    file_path = PurePath(BRD_CONST_DATA.Folder, "blender_assets.cats.txt")
 
-                with requests.get(text_file_url, stream=True) as r:
-                    lines = r.text.splitlines()  # Split the text into lines
-                    with open(str(text_file_path), "w", encoding="utf-8") as f:
-                        for line in lines:
-                            f.write(line + "\n")  # Write each line followed by a newline character
+                    with requests.get(file_url, stream=True) as r:
+                        lines = r.text.splitlines()  # Split the text into lines
+                        with open(str(file_path), "w", encoding="utf-8") as f:
+                            for line in lines:
+                                f.write(line + "\n")  # Write each line followed by a newline character
+                else:
+                    # For other text files, move them to BRD_CONST_DATA.Folder/B_VERSION
+                    text_file_url = text_file_data["download_url"]
+                    text_file_name = text_file_data["name"]
+                    text_file_path = PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version, text_file_name)
+
+                    with requests.get(text_file_url, stream=True) as r:
+                        lines = r.text.splitlines()  # Split the text into lines
+                        with open(str(text_file_path), "w", encoding="utf-8") as f:
+                            for line in lines:
+                                f.write(line + "\n")  # Write each line followed by a newline character
         else:
             log.debug("No internet connection available")
-
         return {"FINISHED"}
 
 class BRD_Force_Update(bpy.types.Operator):
