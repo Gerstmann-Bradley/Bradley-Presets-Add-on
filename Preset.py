@@ -149,7 +149,30 @@ class BRD_Update(bpy.types.Operator):
                     with requests.get(file_repo, stream=True) as r:
                         with open(str(local_filename), "wb") as f:
                             shutil.copyfileobj(r.raw, f)
+                    
+                    # Move the file "blender_assets.cats" to BRD_CONST_DATA.Folder
+                    for text_file_data in text_files_data:
+                        if text_file_data["name"] == "blender_assets.cats.txt":
+                            file_url = text_file_data["download_url"]
+                            file_path = PurePath(BRD_CONST_DATA.Folder, "blender_assets.cats.txt")
 
+                            with requests.get(file_url, stream=True) as r:
+                                lines = r.text.splitlines()  # Split the text into lines
+                                with open(str(file_path), "w", encoding="utf-8") as f:
+                                    for line in lines:
+                                        f.write(line + "\n")  # Write each line followed by a newline character
+                        else:
+                            # For other text files, move them to BRD_CONST_DATA.Folder/B_VERSION
+                            text_file_url = text_file_data["download_url"]
+                            text_file_name = text_file_data["name"]
+                            text_file_path = PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version, text_file_name)
+
+                            with requests.get(text_file_url, stream=True) as r:
+                                lines = r.text.splitlines()  # Split the text into lines
+                                with open(str(text_file_path), "w", encoding="utf-8") as f:
+                                    for line in lines:
+                                        f.write(line + "\n")  # Write each line followed by a newline character
+                                    
                     # Update add-on settings
                     stuff["__DYN__"] = {
                         "New": False,
@@ -162,35 +185,11 @@ class BRD_Update(bpy.types.Operator):
 
                     with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
                         f.write(json.dumps(stuff))
-
                     log.debug("Preset -> Updated")
                 else:
                     log.debug("Preset -> Up to Date")
             else:
                 log.debug("No preset data found in the repository.")
-
-            # Move the file "blender_assets.cats" to BRD_CONST_DATA.Folder
-            for text_file_data in text_files_data:
-                if text_file_data["name"] == "blender_assets.cats.txt":
-                    file_url = text_file_data["download_url"]
-                    file_path = PurePath(BRD_CONST_DATA.Folder, "blender_assets.cats.txt")
-
-                    with requests.get(file_url, stream=True) as r:
-                        lines = r.text.splitlines()  # Split the text into lines
-                        with open(str(file_path), "w", encoding="utf-8") as f:
-                            for line in lines:
-                                f.write(line + "\n")  # Write each line followed by a newline character
-                else:
-                    # For other text files, move them to BRD_CONST_DATA.Folder/B_VERSION
-                    text_file_url = text_file_data["download_url"]
-                    text_file_name = text_file_data["name"]
-                    text_file_path = PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version, text_file_name)
-
-                    with requests.get(text_file_url, stream=True) as r:
-                        lines = r.text.splitlines()  # Split the text into lines
-                        with open(str(text_file_path), "w", encoding="utf-8") as f:
-                            for line in lines:
-                                f.write(line + "\n")  # Write each line followed by a newline character
         else:
             log.debug("No internet connection available")
         return {"FINISHED"}
@@ -248,48 +247,47 @@ class BRD_Force_Update(bpy.types.Operator):
                 with requests.get(file_repo, stream=True) as r:
                     with open(str(local_filename), "wb") as f:
                         shutil.copyfileobj(r.raw, f)
+                    
+                # Move the file "blender_assets.cats" to BRD_CONST_DATA.Folder
+                for text_file_data in text_files_data:
+                    if text_file_data["name"] == "blender_assets.cats.txt":
+                        file_url = text_file_data["download_url"]
+                        file_path = PurePath(BRD_CONST_DATA.Folder, "blender_assets.cats.txt")
 
-                # Update add-on settings
-                stuff["__DYN__"] = {
-                    "New": False,
-                    "P_Version": version,
-                    "B_Version": BRD_CONST_DATA.__DYN__.B_Version,
-                    "File_Location": str(local_filename),
-                    "Debug": BRD_CONST_DATA.__DYN__.Debug,
-                    "sha": sha,
-                }
+                        with requests.get(file_url, stream=True) as r:
+                            lines = r.text.splitlines()  # Split the text into lines
+                            with open(str(file_path), "w", encoding="utf-8") as f:
+                                for line in lines:
+                                    f.write(line + "\n")  # Write each line followed by a newline character
+                    else:
+                        # For other text files, move them to BRD_CONST_DATA.Folder/B_VERSION
+                        text_file_url = text_file_data["download_url"]
+                        text_file_name = text_file_data["name"]
+                        text_file_path = PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version, text_file_name)
 
-                with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
-                    f.write(json.dumps(stuff))
+                        with requests.get(text_file_url, stream=True) as r:
+                            lines = r.text.splitlines()  # Split the text into lines
+                            with open(str(text_file_path), "w", encoding="utf-8") as f:
+                                for line in lines:
+                                    f.write(line + "\n")  # Write each line followed by a newline character
 
-                log.debug("Preset -> Updated")
+                    # Update add-on settings
+                    stuff["__DYN__"] = {
+                        "New": False,
+                        "P_Version": version,
+                        "B_Version": BRD_CONST_DATA.__DYN__.B_Version,
+                        "File_Location": str(local_filename),
+                        "Debug": BRD_CONST_DATA.__DYN__.Debug,
+                        "sha": sha,
+                    }
+
+                    with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
+                        f.write(json.dumps(stuff))
+                    log.debug("Preset -> Updated")
             else:
-                log.debug("Preset -> Up to Date")
+                log.debug("No preset data found in the repository.")
         else:
-            log.debug("No preset data found in the repository.")
-
-        # Move the file "blender_assets.cats" to BRD_CONST_DATA.Folder
-        for text_file_data in text_files_data:
-            if text_file_data["name"] == "blender_assets.cats.txt":
-                file_url = text_file_data["download_url"]
-                file_path = PurePath(BRD_CONST_DATA.Folder, "blender_assets.cats.txt")
-
-                with requests.get(file_url, stream=True) as r:
-                    lines = r.text.splitlines()  # Split the text into lines
-                    with open(str(file_path), "w", encoding="utf-8") as f:
-                        for line in lines:
-                            f.write(line + "\n")  # Write each line followed by a newline character
-            else:
-                # For other text files, move them to BRD_CONST_DATA.Folder/B_VERSION
-                text_file_url = text_file_data["download_url"]
-                text_file_name = text_file_data["name"]
-                text_file_path = PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version, text_file_name)
-
-                with requests.get(text_file_url, stream=True) as r:
-                    lines = r.text.splitlines()  # Split the text into lines
-                    with open(str(text_file_path), "w", encoding="utf-8") as f:
-                        for line in lines:
-                            f.write(line + "\n")  # Write each line followed by a newline character
+            log.debug("No internet connection available")
 
         return {"FINISHED"}
 
