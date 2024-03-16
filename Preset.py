@@ -21,7 +21,7 @@ class BRD_Asset(bpy.types.Operator):
         asset_libraries = bpy.context.preferences.filepaths.asset_libraries
 
         # Define the target name you want to find (e.g., "Data")
-        target_name = "Data"
+        target_name = "BRD_Data"
 
         # Initialize the index
         matching_index = None
@@ -45,7 +45,7 @@ class BRD_Asset(bpy.types.Operator):
             new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
 
             # Set a custom name for the asset library
-            new_library.name = "Data"
+            new_library.name = "BRD_Data"
 
             # Set the import method to "LINK" (instead of the default "APPEND_REUSE")
             new_library.import_method = 'LINK'
