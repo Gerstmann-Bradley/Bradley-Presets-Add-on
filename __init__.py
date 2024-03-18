@@ -23,7 +23,7 @@ bl_info = {
     "location": "GeometryNode",
     "support": "COMMUNITY",
     "category": "Node",
-    "warning": "Restart Blender after disabling/uninstalling",
+    "warning": "Restart Blender after Installation & Activation",
 }
 
 # Initialize an empty dictionary to store preview collections for custom icons
