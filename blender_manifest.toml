@@ -1,0 +1,13 @@
+schema_version = "1.0.0"
+id = "bradley_geo_nodes_presets"
+name = "Bradley's Geo Nodes Presets"
+version = "1.0.0"
+tagline = "Automatically creates an asset library path and downloads various geometry node presets from a GitHub repository aiming to speed up the workflow."
+maintainer = "Bradley Animation"
+type = "add-on"
+permissions = ["files", "network"]
+tags = ["Geometry Nodes"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+website = "https://projects.blender.org/extensions/node_wrangler"
+copyright = [2024 Bradley Animation, 2024 Possibly_ferret]
