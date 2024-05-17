@@ -10,4 +10,4 @@ tags = ["Geometry Nodes"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later"]
 website = "https://projects.blender.org/extensions/node_wrangler"
-copyright = [2024 Bradley Animation, 2024 Possibly_ferret]
+copyright = ["2024 Bradley Animation", "2024 Possibly_ferret"]
