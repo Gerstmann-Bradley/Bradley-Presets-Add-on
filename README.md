@@ -1,0 +1,1 @@
+Upon enabling the addon, it will automatically add an asset library path and download a preset blend file from a public GitHub repository containing geometry node assets. The aim of these assets is to speed up the workflow in geometry nodes, and they will be updated automatically each time Blender starts.
