@@ -18,7 +18,7 @@ bl_info = {
     "name": "Bradley's Geo Node Presets",
     "description": "This is a geometry node preset made by Bradley's animation, and possibly ferret",
     "author": "Possibly Ferret | Bradley",
-    "version": (1, 0, 0),
+    "version": (1, 0, 1),
     "blender": (4, 0, 0),
     "location": "GeometryNode",
     "support": "COMMUNITY",
@@ -106,13 +106,6 @@ class BRD_Preference(bpy.types.AddonPreferences):
 # It performs various tasks, such as updating presets, relocating libraries, and linking geometry nodes
 @persistent
 def run_after_load(*dummy):
-    global BRD_SESSION
-
-    # If BRD_SESSION is True, update presets
-    if BRD_SESSION:
-        bpy.ops.bradley.add_asset()
-        bpy.ops.bradley.update()
-
     # Check if the "preset.blend" file is present in any linked libraries
     if any("preset.blend" in a for a in [i.name for i in bpy.data.libraries]):
 
@@ -129,6 +122,13 @@ def run_after_load(*dummy):
             ),
             filename="preset.blend",
         )
+
+    global BRD_SESSION
+    
+    # If BRD_SESSION is True, update presets
+    if BRD_SESSION:
+        bpy.ops.bradley.add_asset()
+        bpy.ops.bradley.update()
 
 # Flatten a nested list of classes into a single list
 classes = flatten(
