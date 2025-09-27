@@ -18,12 +18,12 @@ bl_info = {
     "name": "Bradley's Geo Node Presets",
     "description": "This is a geometry node preset made by Bradley's animation, and possibly ferret",
     "author": "Possibly Ferret | Bradley",
-    "version": (1, 0, 1),
-    "blender": (4, 0, 0),
+    "version": (2, 0, 0),
+    "blender": (5, 0, 0),
     "location": "GeometryNode",
     "support": "COMMUNITY",
     "category": "Node",
-    "warning": "Restart Blender after Installation & Activation",
+    "warning": "Restart Blender after First Installation & Activation. Disregard this warning if you've done that already.",
 }
 
 # Initialize an empty dictionary to store preview collections for custom icons

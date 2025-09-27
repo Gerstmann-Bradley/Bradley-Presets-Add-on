@@ -48,8 +48,8 @@ class BRD_Asset(bpy.types.Operator):
             # Set a custom name for the asset library
             new_library.name = "BRD_Data"
 
-            # Set the import method to "LINK" (instead of the default "APPEND_REUSE")
-            new_library.import_method = 'LINK'
+            # Set the import method to "PACK" (a new method in 5.0 as a hybrid between Link & Append)
+            new_library.import_method = 'PACK'
 
             # Set the asset library path to the "Data" folder
             new_library.path = str(PurePath(BRD_CONST_DATA.Folder))
