@@ -21,7 +21,7 @@ class BRD_Asset(bpy.types.Operator):
         # Get all asset libraries
         asset_libraries = bpy.context.preferences.filepaths.asset_libraries
 
-        # Define the target name you want to find (e.g., "Data")
+        # Define the target name
         target_name = "BRD_Data"
 
         # Initialize the index
@@ -37,23 +37,30 @@ class BRD_Asset(bpy.types.Operator):
         if matching_index is not None:
             new_path = str(PurePath(BRD_CONST_DATA.Folder))
             asset_libraries[matching_index].path = new_path
-            print(f"Asset library '{target_name}' found at index {matching_index}. Path updated to: {new_path}")
+
+            # Force import_method to PACK
+            asset_libraries[matching_index].import_method = 'PACK'
+
+            print(
+                f"Asset library '{target_name}' found at index {matching_index}. "
+                f"Path updated to: {new_path}, import method set to PACK."
+            )
         else:
             # Add a new asset library
             bpy.ops.preferences.asset_library_add()
 
-            # Get the newly added library (which is the last one in the list)
+            # Get the newly added library (last one in the list)
             new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
 
-            # Set a custom name for the asset library
-            new_library.name = "BRD_Data"
-
-            # Set the import method to "PACK" (a new method in 5.0 as a hybrid between Link & Append)
+            # Set name, import method, and path
+            new_library.name = target_name
             new_library.import_method = 'PACK'
-
-            # Set the asset library path to the "Data" folder
             new_library.path = str(PurePath(BRD_CONST_DATA.Folder))
-            print(f"Asset library '{target_name}' added with path: {str(PurePath(BRD_CONST_DATA.Folder))}")
+
+            print(
+                f"Asset library '{target_name}' added with path: {new_library.path}, "
+                f"import method set to PACK."
+            )
 
         return {'FINISHED'}
 
