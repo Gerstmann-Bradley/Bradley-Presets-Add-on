@@ -18,17 +18,19 @@ class BRD_Asset(bpy.types.Operator):
     bl_description = "Setup a custom asset library for Bradley's add-on"
 
     def execute(self, context):
+
+        # Detect version
+        is_blender_5 = bpy.app.version >= (5, 0, 0)
+
         # Get all asset libraries
         asset_libraries = bpy.context.preferences.filepaths.asset_libraries
 
-        # Define the target name
+        # Define constants
         target_name = "BRD_Data"
         new_path = str(PurePath(BRD_CONST_DATA.Folder))
 
-        # Initialize the index
+        # Find existing library
         matching_index = None
-
-        # Search for existing asset library
         for index, asset_library in enumerate(asset_libraries):
             if asset_library.name == target_name:
                 matching_index = index
@@ -37,41 +39,40 @@ class BRD_Asset(bpy.types.Operator):
         if matching_index is not None:
             lib = asset_libraries[matching_index]
 
-            # Force import_method to PACK
-            lib.import_method = 'PACK'
+            # Always update path
+            lib.path = new_path
 
-            # Update path is important in case bump version such as 5.0 from 4.5.
-            # but only update path if it's different.
-            if lib.path != new_path:
-                lib.path = new_path
+            # Only for Blender ≥ 5.0 → enforce PACK
+            if is_blender_5:
+                lib.import_method = 'PACK'
                 print(
                     f"Asset library '{target_name}' found at index {matching_index}. "
-                    f"Path updated to: {new_path}, import method set to PACK."
+                    f"Path updated to: {new_path}, import method forced to PACK."
                 )
             else:
                 print(
-                    f"Asset library '{target_name}' already exists at index {matching_index}. "
-                    f"Path unchanged, import method set to PACK."
+                    f"Asset library '{target_name}' found at index {matching_index}. "
+                    f"Path updated to: {new_path}. (Import method left unchanged)"
                 )
+
         else:
-            # Add a new asset library
+            # Add new asset library
             bpy.ops.preferences.asset_library_add()
 
-            # Get the newly added library (last one in the list)
             new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
 
-            # Set name, import method, and path
             new_library.name = target_name
-            new_library.import_method = 'PACK'
             new_library.path = new_path
+
+            # Blender ≥ 5.0 → PACK, older → LINK
+            new_library.import_method = 'PACK' if is_blender_5 else 'LINK'
 
             print(
                 f"Asset library '{target_name}' added with path: {new_library.path}, "
-                f"import method set to PACK."
+                f"import method set to {new_library.import_method}."
             )
 
         return {'FINISHED'}
-
 
 class BRD_Remove(bpy.types.Operator):
     bl_idname = "bradley.remove_asset"
