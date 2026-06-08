@@ -4,6 +4,7 @@ from pathlib import Path, PurePath
 from bpy.app.handlers import persistent
 import bpy.utils.previews
 import json
+import threading
 
 # Import local modules from the add-on
 from .Preset import preset_help
@@ -18,7 +19,7 @@ bl_info = {
     "name": "Bradley's Geo Node Presets",
     "description": "This is a geometry node preset made by Bradley's animation, and possibly ferret",
     "author": "Possibly Ferret | Bradley",
-    "version": (2, 0, 0),
+    "version": (2, 1, 0),
     "blender": (5, 0, 0),
     "location": "GeometryNode",
     "support": "COMMUNITY",
@@ -102,33 +103,35 @@ class BRD_Preference(bpy.types.AddonPreferences):
             row.prop(self, "debugging", toggle=True)
             row.prop(self, "experimental", toggle=True)
 
-# Event handler function to run after loading a file
-# It performs various tasks, such as updating presets, relocating libraries, and linking geometry nodes
+
+def _do_network_update():
+    """Runs in background thread — no bpy calls allowed here"""
+    try:
+        bpy.ops.bradley.update()
+    except Exception as e:
+        print(f"BRD: Background update failed: {e}")
+
+
 @persistent
 def run_after_load(*dummy):
-    # Check if the "preset.blend" file is present in any linked libraries
-    if any("preset.blend" in a for a in [i.name for i in bpy.data.libraries]):
+    global BRD_SESSION
 
-        # Relocate the "preset.blend" library to the add-on folder
+    # Relocate library — must stay on main thread (uses bpy)
+    if any("preset.blend" in a for a in [i.name for i in bpy.data.libraries]):
         bpy.ops.wm.lib_relocate(
-            library=[
-                s for s in [i.name for i in bpy.data.libraries] if "preset.blend" in s
-            ][0],
-            directory=str(
-                    PurePath(
-                        BRD_CONST_DATA.Folder,
-                        BRD_CONST_DATA.__DYN__.B_Version,
-                    )
-            ),
+            library=[s for s in [i.name for i in bpy.data.libraries] if "preset.blend" in s][0],
+            directory=str(PurePath(BRD_CONST_DATA.Folder, BRD_CONST_DATA.__DYN__.B_Version)),
             filename="preset.blend",
         )
 
-    global BRD_SESSION
-    
-    # If BRD_SESSION is True, update presets
     if BRD_SESSION:
-        bpy.ops.bradley.add_asset()
-        bpy.ops.bradley.update()
+        BRD_SESSION = False  # only run once on first startup, not on every file open
+        bpy.ops.bradley.add_asset()  # keep on main thread (touches bpy preferences)
+
+        # Spin up the network update in the background — won't block Blender
+        thread = threading.Thread(target=_do_network_update, daemon=True)
+        thread.start()
+
 
 # Flatten a nested list of classes into a single list
 classes = flatten(
@@ -139,7 +142,7 @@ classes = flatten(
     + Panels.panels
 )
 
-# Function to register the add-on and set up necessary handlers
+
 def register():
     print("=" * 20)
     print(__package__)
@@ -149,25 +152,25 @@ def register():
     pcoll = bpy.utils.previews.new()
     icon_dir = PurePath(Path(__file__).parents[0], "icons")
 
-    # Load custom icons for social media links into the previews collection
     for i in BRD_CONST_DATA.Socials:
         pcoll.load(i.Name, str(PurePath(icon_dir, i.Icon)), "IMAGE")
 
     BRD_preview_collections["Social_icons"] = pcoll
 
-    # Register all classes defined in the "classes" list
     for i in classes:
         bpy.utils.register_class(i)
-    # Add the "run_after_load" event handler to the list of load_post handlers
+
     bpy.app.handlers.load_post.append(run_after_load)
 
-# Function to unregister the add-on and remove its functionality
+
 def unregister():
-    # Unregister all classes defined in the "classes" list
     for i in classes:
         bpy.utils.unregister_class(i)
-    bpy.app.handlers.load_post.append(run_after_load)
 
-# Check if the script is being run as the main script and call the register function to initialize the add-on
+    # FIX: was incorrectly using append instead of remove
+    if run_after_load in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(run_after_load)
+
+
 if __name__ == "__main__":
     register()
