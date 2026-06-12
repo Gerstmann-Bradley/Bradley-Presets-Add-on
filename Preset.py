@@ -76,7 +76,8 @@ class BRD_Asset(bpy.types.Operator):
     bl_description = "Setup a custom asset library for Bradley's add-on"
 
     def execute(self, context):
-        is_blender_5 = bpy.app.version >= (5, 0, 0)
+        is_blender_5_2_or_later = bpy.app.version >= (5, 2, 0)
+        is_blender_5_0_or_later = bpy.app.version >= (5, 0, 0)
         asset_libraries = bpy.context.preferences.filepaths.asset_libraries
         target_name = "BRD_Data"
         new_path = str(PurePath(BRD_CONST_DATA.Folder))
@@ -88,16 +89,31 @@ class BRD_Asset(bpy.types.Operator):
                 break
 
         if matching_index is not None:
+            # Library already exists — just update the path
             lib = asset_libraries[matching_index]
             lib.path = new_path
-            if is_blender_5:
+            if is_blender_5_0_or_later:
                 lib.import_method = 'PACK'
+            print(f"BRD: Asset library '{target_name}' path updated to: {new_path}")
         else:
-            bpy.ops.preferences.asset_library_add()
-            new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
-            new_library.name = target_name
-            new_library.path = new_path
-            new_library.import_method = 'PACK' if is_blender_5 else 'LINK'
+            # Add new library — use type='LOCAL' on 5.2+ to avoid remote library API
+            if is_blender_5_2_or_later:
+                bpy.ops.preferences.asset_library_add(
+                    directory=new_path,
+                    name=target_name,
+                    type='LOCAL'
+                )
+                new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
+                new_library.import_method = 'PACK'
+            else:
+                # Blender < 5.2: old API without type parameter
+                bpy.ops.preferences.asset_library_add()
+                new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
+                new_library.name = target_name
+                new_library.path = new_path
+                new_library.import_method = 'PACK' if is_blender_5_0_or_later else 'LINK'
+
+            print(f"BRD: Asset library '{target_name}' added at: {new_path}")
 
         return {"FINISHED"}
 
