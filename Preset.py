@@ -137,54 +137,54 @@ def _resolve_best_version():
     return best
 
 
-def _update_asset_library_path(version_folder):
+def _ensure_asset_library():
     """
-    Updates the BRD_Data asset library to point at the correct version subfolder.
-    Must be called on the main thread — uses bpy.ops and bpy.context.
-    Always points at the version subfolder (e.g. Data/5.2/), never the root Data/ folder,
-    to avoid Blender scanning the same preset.blend from two overlapping paths.
+    Ensures the BRD_Data asset library entry exists in Blender preferences,
+    always pointing at the Data/ root folder.
+    Blender scans recursively so it will find preset.blend inside version subfolders.
+    blender_assets.cats.txt lives at Data/ root alongside the version subfolders.
+    Must be called on the main thread.
     """
     is_blender_5_2_or_later = bpy.app.version >= (5, 2, 0)
     is_blender_5_0_or_later = bpy.app.version >= (5, 0, 0)
     asset_libraries = bpy.context.preferences.filepaths.asset_libraries
     target_name = "BRD_Data"
-    new_path = str(version_folder)
+    root_path = str(BRD_CONST_DATA.Folder)
 
-    matching_index = None
-    for index, lib in enumerate(asset_libraries):
+    for lib in asset_libraries:
         if lib.name == target_name:
-            matching_index = index
-            break
+            # Already exists — make sure path is correct and leave it alone
+            if lib.path != root_path:
+                lib.path = root_path
+                print(f"BRD: Asset library path corrected to: {root_path}")
+            return
 
-    if matching_index is not None:
-        lib = asset_libraries[matching_index]
-        lib.path = new_path
-        if is_blender_5_0_or_later:
-            lib.import_method = 'PACK'
-        print(f"BRD: Asset library path updated to: {new_path}")
+    # Doesn't exist yet — create it
+    if is_blender_5_2_or_later:
+        bpy.ops.preferences.asset_library_add(
+            directory=root_path,
+            name=target_name,
+            type='LOCAL'
+        )
+        new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
+        new_library.import_method = 'PACK'
     else:
-        if is_blender_5_2_or_later:
-            bpy.ops.preferences.asset_library_add(
-                directory=new_path,
-                name=target_name,
-                type='LOCAL'
-            )
-            new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
-            new_library.import_method = 'PACK'
-        else:
-            bpy.ops.preferences.asset_library_add()
-            new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
-            new_library.name = target_name
-            new_library.path = new_path
-            new_library.import_method = 'PACK' if is_blender_5_0_or_later else 'LINK'
-        print(f"BRD: Asset library added at: {new_path}")
+        bpy.ops.preferences.asset_library_add()
+        new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
+        new_library.name = target_name
+        new_library.path = root_path
+        new_library.import_method = 'PACK' if is_blender_5_0_or_later else 'LINK'
+
+    print(f"BRD: Asset library '{target_name}' created at: {root_path}")
 
 
 def _download_preset(best_version, best_version_folder):
     """
-    Pure file I/O + network work. Safe to call from a background thread.
-    Downloads the preset and text files into best_version_folder.
-    Returns the final local_filename path on success, or None on failure.
+    Pure file I/O + network. Safe to call from a background thread.
+    Downloads preset.blend into Data/<version>/
+    Downloads blender_assets.cats.txt into Data/ root (next to version folders)
+    so that Blender finds it when scanning the Data/ root asset library.
+    Returns True on success, False on failure.
     """
     with open(BRD_CONST_DATA.Folder / "settings.json", "r") as f:
         stuff = json.load(f)
@@ -195,18 +195,18 @@ def _download_preset(best_version, best_version_folder):
         r = requests.get(repo_url, timeout=(3, 10))
         if r.status_code != 200:
             print(f"BRD: GitHub returned {r.status_code} for version {best_version}")
-            return None
+            return False
         repo_contents = r.json()
     except requests.RequestException as e:
         print(f"BRD: GitHub request failed: {e}")
-        return None
+        return False
 
     preset_data = next((item for item in repo_contents if item["name"].endswith(".blend")), None)
     text_files_data = [item for item in repo_contents if item["name"].endswith(".txt")]
 
     if not preset_data:
         print("BRD: No preset .blend found in the repository.")
-        return None
+        return False
 
     sha = preset_data["sha"]
     version = preset_data["name"].lower().replace(" ", "")
@@ -229,7 +229,7 @@ def _download_preset(best_version, best_version_folder):
 
     if not needs_update:
         log.debug("Preset -> Up to Date")
-        return best_version_folder / "preset.blend"
+        return True
 
     log.debug("Preset -> Updating")
 
@@ -250,24 +250,22 @@ def _download_preset(best_version, best_version_folder):
                 shutil.copyfileobj(r.raw, f)
     except requests.RequestException as e:
         print(f"BRD: Failed to download preset: {e}")
-        return None
+        return False
 
     for text_file_data in text_files_data:
         try:
             if text_file_data["name"] == "blender_assets.cats.txt":
+                # Always saved to Data/ root so Blender finds it at the library root
                 file_path = BRD_CONST_DATA.Folder / "blender_assets.cats.txt"
-                with requests.get(text_file_data["download_url"], stream=True, timeout=(3, 30)) as r:
-                    r.raise_for_status()
-                    with open(str(file_path), "w", encoding="utf-8") as f:
-                        for line in r.text.splitlines():
-                            f.write(line + "\n")
             else:
-                text_file_path = best_version_folder / text_file_data["name"]
-                with requests.get(text_file_data["download_url"], stream=True, timeout=(3, 30)) as r:
-                    r.raise_for_status()
-                    with open(str(text_file_path), "w", encoding="utf-8") as f:
-                        for line in r.text.splitlines():
-                            f.write(line + "\n")
+                # Other text files go into the version subfolder
+                file_path = best_version_folder / text_file_data["name"]
+
+            with requests.get(text_file_data["download_url"], stream=True, timeout=(3, 30)) as r:
+                r.raise_for_status()
+                with open(str(file_path), "w", encoding="utf-8") as f:
+                    for line in r.text.splitlines():
+                        f.write(line + "\n")
         except requests.RequestException as e:
             print(f"BRD: Failed to download {text_file_data['name']}: {e}")
 
@@ -283,7 +281,7 @@ def _download_preset(best_version, best_version_folder):
         f.write(json.dumps(stuff))
 
     log.debug("Preset -> Updated")
-    return local_filename
+    return True
 
 
 class BRD_Asset(bpy.types.Operator):
@@ -292,45 +290,7 @@ class BRD_Asset(bpy.types.Operator):
     bl_description = "Setup a custom asset library for Bradley's add-on"
 
     def execute(self, context):
-        """
-        Only ensures the library entry exists in preferences.
-        Does NOT set the path — that is handled by _update_asset_library_path()
-        after BRD_Update resolves the correct version folder.
-        This avoids the duplicate-asset bug caused by pointing at Data/ root
-        while the preset lives in Data/5.2/.
-        """
-        is_blender_5_2_or_later = bpy.app.version >= (5, 2, 0)
-        is_blender_5_0_or_later = bpy.app.version >= (5, 0, 0)
-        asset_libraries = bpy.context.preferences.filepaths.asset_libraries
-        target_name = "BRD_Data"
-
-        # Check if entry already exists
-        for lib in asset_libraries:
-            if lib.name == target_name:
-                print(f"BRD: Asset library '{target_name}' already exists, skipping creation.")
-                return {"FINISHED"}
-
-        # Entry doesn't exist yet — create it pointing at the Data root as a
-        # temporary placeholder. BRD_Update will correct the path to the
-        # version subfolder once it resolves the best version.
-        placeholder_path = str(PurePath(BRD_CONST_DATA.Folder))
-
-        if is_blender_5_2_or_later:
-            bpy.ops.preferences.asset_library_add(
-                directory=placeholder_path,
-                name=target_name,
-                type='LOCAL'
-            )
-            new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
-            new_library.import_method = 'PACK'
-        else:
-            bpy.ops.preferences.asset_library_add()
-            new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
-            new_library.name = target_name
-            new_library.path = placeholder_path
-            new_library.import_method = 'PACK' if is_blender_5_0_or_later else 'LINK'
-
-        print(f"BRD: Asset library '{target_name}' created (placeholder). Path will be updated after version check.")
+        _ensure_asset_library()
         return {"FINISHED"}
 
 
@@ -364,9 +324,10 @@ class BRD_Update(bpy.types.Operator):
 
     def execute(self, context):
         """
-        NOTE: This operator is called from a background thread via __init__.py.
-        All work here must be pure file I/O and network only.
-        bpy calls are scheduled back onto the main thread via bpy.app.timers.register().
+        Called from a background thread — all work must be pure file I/O
+        and network only. bpy calls are not safe here.
+        _ensure_asset_library() was already called on the main thread by
+        BRD_Asset before this thread started, so no bpy work needed here.
         """
         if not connected_to_internet():
             log.debug("No internet connection available")
@@ -377,18 +338,7 @@ class BRD_Update(bpy.types.Operator):
             return {"FINISHED"}
 
         best_version_folder = Path(PurePath(BRD_CONST_DATA.Folder, best_version))
-
-        # All network + file work happens here (safe in background thread)
-        result = _download_preset(best_version, best_version_folder)
-
-        if result is not None:
-            # Schedule the bpy.ops path update back onto the main thread
-            # Use a short delay to ensure Blender is fully ready
-            def _deferred_path_update():
-                _update_asset_library_path(best_version_folder)
-                return None  # returning None unregisters the timer
-
-            bpy.app.timers.register(_deferred_path_update, first_interval=0.5)
+        _download_preset(best_version, best_version_folder)
 
         return {"FINISHED"}
 
@@ -400,9 +350,7 @@ class BRD_Force_Update(bpy.types.Operator):
     def execute(self, context):
         """
         Called from a UI button — runs on the main thread.
-        We still use the same _download_preset() helper for consistency,
-        but call _update_asset_library_path() directly since we're already
-        on the main thread.
+        Forces re-download regardless of sha/version match.
         """
         if not connected_to_internet():
             log.debug("No internet connection available")
@@ -414,18 +362,14 @@ class BRD_Force_Update(bpy.types.Operator):
 
         best_version_folder = Path(PurePath(BRD_CONST_DATA.Folder, best_version))
 
-        # Force re-download by temporarily clearing the sha so _download_preset
-        # always sees it as needing an update
+        # Force re-download by temporarily clearing the sha
         original_sha = BRD_CONST_DATA.__DYN__.sha
         BRD_CONST_DATA.__DYN__.sha = ""
+        _download_preset(best_version, best_version_folder)
+        BRD_CONST_DATA.__DYN__.sha = original_sha
 
-        result = _download_preset(best_version, best_version_folder)
-
-        BRD_CONST_DATA.__DYN__.sha = original_sha  # restore in case anything else reads it
-
-        if result is not None:
-            # Already on main thread — call directly
-            _update_asset_library_path(best_version_folder)
+        # Also ensure library entry is correct while we're on the main thread
+        _ensure_asset_library()
 
         return {"FINISHED"}
 
