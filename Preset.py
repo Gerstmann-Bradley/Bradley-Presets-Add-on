@@ -15,6 +15,24 @@ from .Logger import log
 from .utils import connected_to_internet
 
 
+def _get_rate_limit_status():
+    """
+    Checks GitHub's actual current rate limit status.
+    This call does NOT consume your normal API quota.
+    Returns (remaining, reset_at) or (None, None) if the check itself fails.
+    """
+    try:
+        r = requests.get("https://api.github.com/rate_limit", timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            remaining = data["resources"]["core"]["remaining"]
+            reset_at = data["resources"]["core"]["reset"]
+            return remaining, reset_at
+    except requests.RequestException:
+        pass
+    return None, None
+
+
 def _resolve_best_version():
     """
     Checks GitHub root for available version folders and returns the best
@@ -24,18 +42,38 @@ def _resolve_best_version():
     or None if we should abort (rate limited, timed out, no internet, etc).
 
     Also handles:
-    - Rate limit detection and cooldown caching
+    - Rate limit detection and cooldown caching (with live verification —
+      a cached cooldown is treated only as a fallback hint, not a hard skip,
+      since VPN/IP changes can reset GitHub's per-IP quota early)
     - Cleaning up old version folders that are no longer the best match
     - Creating the best version folder if it doesn't exist yet
     """
     with open(BRD_CONST_DATA.Folder / "settings.json", "r") as f:
         stuff = json.load(f)
 
-    # Still in a rate limit cooldown — skip entirely
-    reset_time = stuff.get("__DYN__", {}).get("rate_limit_reset", 0)
-    if time.time() < reset_time:
-        print("BRD: GitHub rate limit cooldown active, skipping update.")
+    remaining, live_reset_at = _get_rate_limit_status()
+
+    if remaining is None:
+        # Couldn't verify live status — fall back to the cached cooldown as a guess
+        cached_reset = stuff.get("__DYN__", {}).get("rate_limit_reset", 0)
+        if time.time() < cached_reset:
+            print("BRD: Rate limit check unavailable, using cached cooldown.")
+            return None
+        # Otherwise just proceed and let the real request below tell us if we're limited
+    elif remaining <= 0:
+        # Genuinely still limited right now, confirmed live
+        stuff["__DYN__"]["rate_limit_reset"] = live_reset_at
+        with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
+            f.write(json.dumps(stuff))
+        print(f"BRD: Rate limit confirmed exhausted. Resets at {live_reset_at}.")
         return None
+    else:
+        # We have quota right now — clear any stale cooldown from a previous IP
+        if stuff.get("__DYN__", {}).get("rate_limit_reset", 0) != 0:
+            stuff["__DYN__"]["rate_limit_reset"] = 0
+            with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
+                f.write(json.dumps(stuff))
+        print(f"BRD: Rate limit OK, {remaining} requests remaining.")
 
     try:
         r = requests.get(
@@ -74,12 +112,10 @@ def _resolve_best_version():
     local = float(str(bpy.app.version_string)[0:3])
 
     if local in vers:
-        # Exact match — use it directly
         best = str(local)
     else:
-        # No exact match — find the highest available version that doesn't
-        # exceed the current Blender version (i.e. don't use a future version).
-        # Falls back to the closest overall if none are lower.
+        # Find the highest available version that doesn't exceed the current
+        # Blender version. Falls back to the closest overall if none are lower.
         lower = [v for v in vers if v <= local]
         if lower:
             best = str(max(lower))
@@ -92,7 +128,7 @@ def _resolve_best_version():
     best_folder = Path(PurePath(BRD_CONST_DATA.Folder, best))
     best_folder.mkdir(parents=True, exist_ok=True)
 
-    # Remove all other version folders (old versions, wrong fallbacks, etc)
+    # Remove all other version folders
     for item in BRD_CONST_DATA.Folder.iterdir():
         if item.is_dir() and item.name != best:
             print(f"BRD: Removing old version folder: {item.name}")
@@ -101,42 +137,151 @@ def _resolve_best_version():
     return best
 
 
-def _update_asset_library_path(version_folder):
-    """Updates the BRD_Data asset library path to point to the correct version folder."""
+def _ensure_asset_library():
+    """
+    Ensures the BRD_Data asset library entry exists in Blender preferences,
+    always pointing at the Data/ root folder.
+    Blender scans recursively so it will find preset.blend inside version subfolders.
+    blender_assets.cats.txt lives at Data/ root alongside the version subfolders.
+    Must be called on the main thread.
+    """
     is_blender_5_2_or_later = bpy.app.version >= (5, 2, 0)
     is_blender_5_0_or_later = bpy.app.version >= (5, 0, 0)
     asset_libraries = bpy.context.preferences.filepaths.asset_libraries
     target_name = "BRD_Data"
-    new_path = str(version_folder)
+    root_path = str(BRD_CONST_DATA.Folder)
 
-    matching_index = None
-    for index, lib in enumerate(asset_libraries):
+    for lib in asset_libraries:
         if lib.name == target_name:
-            matching_index = index
-            break
+            # Already exists — make sure path is correct and leave it alone
+            if lib.path != root_path:
+                lib.path = root_path
+                print(f"BRD: Asset library path corrected to: {root_path}")
+            return
 
-    if matching_index is not None:
-        lib = asset_libraries[matching_index]
-        lib.path = new_path
-        if is_blender_5_0_or_later:
-            lib.import_method = 'PACK'
-        print(f"BRD: Asset library path updated to: {new_path}")
+    # Doesn't exist yet — create it
+    if is_blender_5_2_or_later:
+        bpy.ops.preferences.asset_library_add(
+            directory=root_path,
+            name=target_name,
+            type='LOCAL'
+        )
+        new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
+        new_library.import_method = 'PACK'
     else:
-        if is_blender_5_2_or_later:
-            bpy.ops.preferences.asset_library_add(
-                directory=new_path,
-                name=target_name,
-                type='LOCAL'
-            )
-            new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
-            new_library.import_method = 'PACK'
-        else:
-            bpy.ops.preferences.asset_library_add()
-            new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
-            new_library.name = target_name
-            new_library.path = new_path
-            new_library.import_method = 'PACK' if is_blender_5_0_or_later else 'LINK'
-        print(f"BRD: Asset library added at: {new_path}")
+        bpy.ops.preferences.asset_library_add()
+        new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
+        new_library.name = target_name
+        new_library.path = root_path
+        new_library.import_method = 'PACK' if is_blender_5_0_or_later else 'LINK'
+
+    print(f"BRD: Asset library '{target_name}' created at: {root_path}")
+
+
+def _download_preset(best_version, best_version_folder):
+    """
+    Pure file I/O + network. Safe to call from a background thread.
+    Downloads preset.blend into Data/<version>/
+    Downloads blender_assets.cats.txt into Data/ root (next to version folders)
+    so that Blender finds it when scanning the Data/ root asset library.
+    Returns True on success, False on failure.
+    """
+    with open(BRD_CONST_DATA.Folder / "settings.json", "r") as f:
+        stuff = json.load(f)
+
+    repo_url = f"https://api.github.com/repos/{stuff['Github']['Repository']}/contents/{best_version}"
+
+    try:
+        r = requests.get(repo_url, timeout=(3, 10))
+        if r.status_code != 200:
+            print(f"BRD: GitHub returned {r.status_code} for version {best_version}")
+            return False
+        repo_contents = r.json()
+    except requests.RequestException as e:
+        print(f"BRD: GitHub request failed: {e}")
+        return False
+
+    preset_data = next((item for item in repo_contents if item["name"].endswith(".blend")), None)
+    text_files_data = [item for item in repo_contents if item["name"].endswith(".txt")]
+
+    if not preset_data:
+        print("BRD: No preset .blend found in the repository.")
+        return False
+
+    sha = preset_data["sha"]
+    version = preset_data["name"].lower().replace(" ", "")
+    file_repo = preset_data["download_url"]
+
+    log.debug(f"sha new -> {sha}")
+    log.debug(f"sha current -> {BRD_CONST_DATA.__DYN__.sha}")
+    log.debug(f"Preset github version: {version}")
+    log.debug(f"Preset local version: {BRD_CONST_DATA.__DYN__.P_Version}")
+
+    a = [i for i in best_version_folder.iterdir() if i.name.endswith(".blend")]
+
+    needs_update = (
+        BRD_CONST_DATA.__DYN__.P_Version == "__"
+        or BRD_CONST_DATA.__DYN__.P_Version != version
+        or sha != BRD_CONST_DATA.__DYN__.sha
+        or best_version != BRD_CONST_DATA.__DYN__.B_Version
+        or not a
+    )
+
+    if not needs_update:
+        log.debug("Preset -> Up to Date")
+        return True
+
+    log.debug("Preset -> Updating")
+
+    # Remove old preset file if it exists
+    if (
+        stuff["__DYN__"]["File_Location"]
+        and stuff["__DYN__"]["File_Location"] != "."
+        and a
+    ):
+        Path(stuff["__DYN__"]["File_Location"]).unlink(missing_ok=True)
+
+    local_filename = best_version_folder / "preset.blend"
+
+    try:
+        with requests.get(file_repo, stream=True, timeout=(3, 30)) as r:
+            r.raise_for_status()
+            with open(str(local_filename), "wb") as f:
+                shutil.copyfileobj(r.raw, f)
+    except requests.RequestException as e:
+        print(f"BRD: Failed to download preset: {e}")
+        return False
+
+    for text_file_data in text_files_data:
+        try:
+            if text_file_data["name"] == "blender_assets.cats.txt":
+                # Always saved to Data/ root so Blender finds it at the library root
+                file_path = BRD_CONST_DATA.Folder / "blender_assets.cats.txt"
+            else:
+                # Other text files go into the version subfolder
+                file_path = best_version_folder / text_file_data["name"]
+
+            with requests.get(text_file_data["download_url"], stream=True, timeout=(3, 30)) as r:
+                r.raise_for_status()
+                with open(str(file_path), "w", encoding="utf-8") as f:
+                    for line in r.text.splitlines():
+                        f.write(line + "\n")
+        except requests.RequestException as e:
+            print(f"BRD: Failed to download {text_file_data['name']}: {e}")
+
+    stuff["__DYN__"] = {
+        "New": False,
+        "P_Version": version,
+        "B_Version": best_version,
+        "File_Location": str(local_filename),
+        "Debug": BRD_CONST_DATA.__DYN__.Debug,
+        "sha": sha,
+    }
+    with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
+        f.write(json.dumps(stuff))
+
+    log.debug("Preset -> Updated")
+    return True
 
 
 class BRD_Asset(bpy.types.Operator):
@@ -145,44 +290,7 @@ class BRD_Asset(bpy.types.Operator):
     bl_description = "Setup a custom asset library for Bradley's add-on"
 
     def execute(self, context):
-        # Point to the Data folder itself as a starting point —
-        # _resolve_best_version() will refine the path to the correct version subfolder
-        # during BRD_Update. This just ensures the library entry exists.
-        is_blender_5_2_or_later = bpy.app.version >= (5, 2, 0)
-        is_blender_5_0_or_later = bpy.app.version >= (5, 0, 0)
-        asset_libraries = bpy.context.preferences.filepaths.asset_libraries
-        target_name = "BRD_Data"
-        new_path = str(PurePath(BRD_CONST_DATA.Folder))
-
-        matching_index = None
-        for index, asset_library in enumerate(asset_libraries):
-            if asset_library.name == target_name:
-                matching_index = index
-                break
-
-        if matching_index is not None:
-            lib = asset_libraries[matching_index]
-            lib.path = new_path
-            if is_blender_5_0_or_later:
-                lib.import_method = 'PACK'
-            print(f"BRD: Asset library '{target_name}' path updated to: {new_path}")
-        else:
-            if is_blender_5_2_or_later:
-                bpy.ops.preferences.asset_library_add(
-                    directory=new_path,
-                    name=target_name,
-                    type='LOCAL'
-                )
-                new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
-                new_library.import_method = 'PACK'
-            else:
-                bpy.ops.preferences.asset_library_add()
-                new_library = bpy.context.preferences.filepaths.asset_libraries[-1]
-                new_library.name = target_name
-                new_library.path = new_path
-                new_library.import_method = 'PACK' if is_blender_5_0_or_later else 'LINK'
-            print(f"BRD: Asset library '{target_name}' added at: {new_path}")
-
+        _ensure_asset_library()
         return {"FINISHED"}
 
 
@@ -203,9 +311,9 @@ class BRD_Remove(bpy.types.Operator):
 
         if matching_index is not None:
             bpy.ops.preferences.asset_library_remove(index=matching_index)
-            print(f"Asset library '{target_name}' removed.")
+            print(f"BRD: Asset library '{target_name}' removed.")
         else:
-            print(f"No asset library with name '{target_name}' found.")
+            print(f"BRD: No asset library with name '{target_name}' found.")
 
         return {'FINISHED'}
 
@@ -215,116 +323,22 @@ class BRD_Update(bpy.types.Operator):
     bl_label = "bradley update"
 
     def execute(self, context):
+        """
+        Called from a background thread — all work must be pure file I/O
+        and network only. bpy calls are not safe here.
+        _ensure_asset_library() was already called on the main thread by
+        BRD_Asset before this thread started, so no bpy work needed here.
+        """
         if not connected_to_internet():
             log.debug("No internet connection available")
             return {"FINISHED"}
 
-        # Resolve best version from GitHub — returns None if we should abort
         best_version = _resolve_best_version()
         if best_version is None:
             return {"FINISHED"}
 
         best_version_folder = Path(PurePath(BRD_CONST_DATA.Folder, best_version))
-
-        # Fetch the versioned repo contents for the preset
-        repo_url = f"https://api.github.com/repos/{BRD_CONST_DATA.Repository.split('contents/')[0].split('repos/')[1]}contents/{best_version}"
-        # Rebuild cleanly from the base repo name stored in settings
-        with open(BRD_CONST_DATA.Folder / "settings.json", "r") as f:
-            stuff = json.load(f)
-        repo_url = f"https://api.github.com/repos/{stuff['Github']['Repository']}/contents/{best_version}"
-
-        try:
-            r = requests.get(repo_url, timeout=(3, 10))
-            if r.status_code != 200:
-                log.debug(f"GitHub returned {r.status_code} for version {best_version}")
-                return {'CANCELLED'}
-            repo_contents = r.json()
-        except requests.RequestException as e:
-            log.debug(f"GitHub request failed: {e}")
-            return {'CANCELLED'}
-
-        preset_data = next((item for item in repo_contents if item["name"].endswith(".blend")), None)
-        text_files_data = [item for item in repo_contents if item["name"].endswith(".txt")]
-
-        if not preset_data:
-            log.debug("No preset data found in the repository.")
-            return {"FINISHED"}
-
-        sha = preset_data["sha"]
-        log.debug(f"sha new -> {sha}")
-        log.debug(f"sha current -> {BRD_CONST_DATA.__DYN__.sha}")
-        version = preset_data["name"].lower().replace(" ", "")
-        file_repo = preset_data["download_url"]
-
-        log.debug(f"Preset github version: {version}")
-        log.debug(f"Preset local version: {BRD_CONST_DATA.__DYN__.P_Version}")
-
-        a = [i for i in best_version_folder.iterdir() if i.name.endswith(".blend")]
-
-        # Only download if something has actually changed
-        if (
-            BRD_CONST_DATA.__DYN__.P_Version == "__"
-            or BRD_CONST_DATA.__DYN__.P_Version != version
-            or sha != BRD_CONST_DATA.__DYN__.sha
-            or best_version != BRD_CONST_DATA.__DYN__.B_Version
-            or not a
-        ):
-            log.debug("Preset -> Updating")
-
-            if (
-                stuff["__DYN__"]["File_Location"]
-                and stuff["__DYN__"]["File_Location"] != "."
-                and a
-            ):
-                Path(stuff["__DYN__"]["File_Location"]).unlink(missing_ok=True)
-
-            local_filename = PurePath(best_version_folder, "preset.blend")
-
-            with requests.get(file_repo, stream=True, timeout=(3, 30)) as r:
-                r.raise_for_status()
-                with open(str(local_filename), "wb") as f:
-                    shutil.copyfileobj(r.raw, f)
-
-            for text_file_data in text_files_data:
-                if text_file_data["name"] == "blender_assets.cats.txt":
-                    file_url = text_file_data["download_url"]
-                    file_path = PurePath(BRD_CONST_DATA.Folder, "blender_assets.cats.txt")
-                    with requests.get(file_url, stream=True, timeout=(3, 30)) as r:
-                        r.raise_for_status()
-                        lines = r.text.splitlines()
-                        with open(str(file_path), "w", encoding="utf-8") as f:
-                            for line in lines:
-                                f.write(line + "\n")
-                else:
-                    text_file_url = text_file_data["download_url"]
-                    text_file_name = text_file_data["name"]
-                    text_file_path = PurePath(best_version_folder, text_file_name)
-                    with requests.get(text_file_url, stream=True, timeout=(3, 30)) as r:
-                        r.raise_for_status()
-                        lines = r.text.splitlines()
-                        with open(str(text_file_path), "w", encoding="utf-8") as f:
-                            for line in lines:
-                                f.write(line + "\n")
-
-            stuff["__DYN__"] = {
-                "New": False,
-                "P_Version": version,
-                "B_Version": best_version,
-                "File_Location": str(local_filename),
-                "Debug": BRD_CONST_DATA.__DYN__.Debug,
-                "sha": sha,
-            }
-            with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
-                f.write(json.dumps(stuff))
-
-            # Update asset library to point at the correct version folder
-            _update_asset_library_path(best_version_folder)
-
-            log.debug("Preset -> Updated")
-        else:
-            log.debug("Preset -> Up to Date")
-            # Even if preset is up to date, ensure library path is correct
-            _update_asset_library_path(best_version_folder)
+        _download_preset(best_version, best_version_folder)
 
         return {"FINISHED"}
 
@@ -334,99 +348,29 @@ class BRD_Force_Update(bpy.types.Operator):
     bl_label = "BRD_Force_Update"
 
     def execute(self, context):
+        """
+        Called from a UI button — runs on the main thread.
+        Forces re-download regardless of sha/version match.
+        """
         if not connected_to_internet():
             log.debug("No internet connection available")
             return {"FINISHED"}
 
-        # Resolve best version from GitHub
         best_version = _resolve_best_version()
         if best_version is None:
             return {"FINISHED"}
 
         best_version_folder = Path(PurePath(BRD_CONST_DATA.Folder, best_version))
 
-        with open(BRD_CONST_DATA.Folder / "settings.json", "r") as f:
-            stuff = json.load(f)
-        repo_url = f"https://api.github.com/repos/{stuff['Github']['Repository']}/contents/{best_version}"
+        # Force re-download by temporarily clearing the sha
+        original_sha = BRD_CONST_DATA.__DYN__.sha
+        BRD_CONST_DATA.__DYN__.sha = ""
+        _download_preset(best_version, best_version_folder)
+        BRD_CONST_DATA.__DYN__.sha = original_sha
 
-        try:
-            r = requests.get(repo_url, timeout=(3, 10))
-            if r.status_code != 200:
-                log.debug(f"GitHub returned {r.status_code}")
-                return {'CANCELLED'}
-            repo_contents = r.json()
-        except requests.RequestException as e:
-            log.debug(f"GitHub request failed: {e}")
-            return {'CANCELLED'}
+        # Also ensure library entry is correct while we're on the main thread
+        _ensure_asset_library()
 
-        preset_data = next((item for item in repo_contents if item["name"].endswith(".blend")), None)
-        text_files_data = [item for item in repo_contents if item["name"].endswith(".txt")]
-
-        if not preset_data:
-            log.debug("No preset data found in the repository.")
-            return {"FINISHED"}
-
-        sha = preset_data["sha"]
-        version = preset_data["name"].lower().replace(" ", "")
-        file_repo = preset_data["download_url"]
-
-        log.debug(f"sha new -> {sha}")
-        log.debug(f"sha current -> {BRD_CONST_DATA.__DYN__.sha}")
-        log.debug(f"Preset github version: {version}")
-        log.debug(f"Preset local version: {BRD_CONST_DATA.__DYN__.P_Version}")
-
-        a = [i for i in best_version_folder.iterdir() if i.name.endswith(".blend")]
-
-        if (
-            stuff["__DYN__"]["File_Location"]
-            and stuff["__DYN__"]["File_Location"] != "."
-            and a
-        ):
-            Path(stuff["__DYN__"]["File_Location"]).unlink(missing_ok=True)
-
-        local_filename = PurePath(best_version_folder, "preset.blend")
-
-        with requests.get(file_repo, stream=True, timeout=(3, 30)) as r:
-            r.raise_for_status()
-            with open(str(local_filename), "wb") as f:
-                shutil.copyfileobj(r.raw, f)
-
-        for text_file_data in text_files_data:
-            if text_file_data["name"] == "blender_assets.cats.txt":
-                file_url = text_file_data["download_url"]
-                file_path = PurePath(BRD_CONST_DATA.Folder, "blender_assets.cats.txt")
-                with requests.get(file_url, stream=True, timeout=(3, 30)) as r:
-                    r.raise_for_status()
-                    lines = r.text.splitlines()
-                    with open(str(file_path), "w", encoding="utf-8") as f:
-                        for line in lines:
-                            f.write(line + "\n")
-            else:
-                text_file_url = text_file_data["download_url"]
-                text_file_name = text_file_data["name"]
-                text_file_path = PurePath(best_version_folder, text_file_name)
-                with requests.get(text_file_url, stream=True, timeout=(3, 30)) as r:
-                    r.raise_for_status()
-                    lines = r.text.splitlines()
-                    with open(str(text_file_path), "w", encoding="utf-8") as f:
-                        for line in lines:
-                            f.write(line + "\n")
-
-        stuff["__DYN__"] = {
-            "New": False,
-            "P_Version": version,
-            "B_Version": best_version,
-            "File_Location": str(local_filename),
-            "Debug": BRD_CONST_DATA.__DYN__.Debug,
-            "sha": sha,
-        }
-        with open(BRD_CONST_DATA.Folder / "settings.json", "w") as f:
-            f.write(json.dumps(stuff))
-
-        # Update asset library to point at the correct version folder
-        _update_asset_library_path(best_version_folder)
-
-        log.debug("Preset -> Updated")
         return {"FINISHED"}
 
 
@@ -435,15 +379,36 @@ class BRD_Folder(bpy.types.Operator):
     bl_label = "bradley folder"
 
     def execute(self, context):
-        self.place = str(BRD_CONST_DATA.File_Location().resolve())
+        # Read File_Location from settings.json — this is always written by
+        # _download_preset() with the correct resolved version path, unlike
+        # BRD_CONST_DATA.File_Location() which uses the import-time Blender version
+        # and may point at a folder that doesn't exist (e.g. 5.3 when best is 5.2).
+        try:
+            with open(BRD_CONST_DATA.Folder / "settings.json", "r") as f:
+                stuff = json.load(f)
+            file_location = stuff["__DYN__"].get("File_Location", "")
+        except Exception as e:
+            print(f"BRD: Could not read settings.json: {e}")
+            file_location = ""
+
+        if not file_location or file_location == ".":
+            self.report({"WARNING"}, "Preset file not downloaded yet.")
+            return {"CANCELLED"}
+
+        self.place = str(Path(file_location).resolve())
+
+        if not Path(self.place).exists():
+            self.report({"WARNING"}, f"Preset file not found at: {self.place}")
+            return {"CANCELLED"}
+
         log.debug(f"Opening {self.place}")
 
         if system() == "Windows":
-            Popen(["explorer", "/select,", str(self.place)])
+            Popen(["explorer", "/select,", self.place])
         elif system() == "Darwin":
-            Popen(["open", str(self.place)])
+            Popen(["open", "-R", self.place])
         else:
-            Popen(["xdg-open", str(self.place)])
+            Popen(["xdg-open", str(Path(self.place).parent)])
 
         return {"FINISHED"}
 
