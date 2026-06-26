@@ -379,15 +379,36 @@ class BRD_Folder(bpy.types.Operator):
     bl_label = "bradley folder"
 
     def execute(self, context):
-        self.place = str(BRD_CONST_DATA.File_Location().resolve())
+        # Read File_Location from settings.json — this is always written by
+        # _download_preset() with the correct resolved version path, unlike
+        # BRD_CONST_DATA.File_Location() which uses the import-time Blender version
+        # and may point at a folder that doesn't exist (e.g. 5.3 when best is 5.2).
+        try:
+            with open(BRD_CONST_DATA.Folder / "settings.json", "r") as f:
+                stuff = json.load(f)
+            file_location = stuff["__DYN__"].get("File_Location", "")
+        except Exception as e:
+            print(f"BRD: Could not read settings.json: {e}")
+            file_location = ""
+
+        if not file_location or file_location == ".":
+            self.report({"WARNING"}, "Preset file not downloaded yet.")
+            return {"CANCELLED"}
+
+        self.place = str(Path(file_location).resolve())
+
+        if not Path(self.place).exists():
+            self.report({"WARNING"}, f"Preset file not found at: {self.place}")
+            return {"CANCELLED"}
+
         log.debug(f"Opening {self.place}")
 
         if system() == "Windows":
-            Popen(["explorer", "/select,", str(self.place)])
+            Popen(["explorer", "/select,", self.place])
         elif system() == "Darwin":
-            Popen(["open", str(self.place)])
+            Popen(["open", "-R", self.place])
         else:
-            Popen(["xdg-open", str(self.place)])
+            Popen(["xdg-open", str(Path(self.place).parent)])
 
         return {"FINISHED"}
 
